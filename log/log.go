@@ -1,5 +1,12 @@
 package log
 
+import (
+	"io"
+	"os"
+)
+
+// TODO: Output should be like: Short Date and Time [RootPrefix][OtherPrefix]: log info
+
 type Level int
 
 // String will provide a string representation of the log Level
@@ -48,11 +55,34 @@ type Logger interface {
 }
 
 type logger struct {
+	parent Logger
 	level  Level
 	prefix string
+	out    io.Writer
 }
 
+func (l *logger) Debug(v ...interface{}) {
+
+}
+
+func (l *logger) Info(v ...interface{}) {
+
+}
+
+func (l *logger) Warn(v ...interface{}) {
+
+}
+
+func (l *logger) Error(v ...interface{}) {
+
+}
 
 var (
 	currentLevel Level = WarningLevel
+	rootLogger   Logger
 )
+
+func init() {
+	rootLogger = &logger{ nil, WarningLevel, "DSA", os.Stderr}
+}
+
