@@ -8,17 +8,6 @@ import (
 	"github.com/butlermatt/dslink/crypto"
 )
 
-// TODO: Need to know. isResponder, isRequester, brokerURL, name (prefix?), Token, private key
-
-type conf struct {
-	isReq  bool
-	isResp bool
-	broker *url.URL
-	name   string
-	token  string
-	key    *crypto.PrivateKey
-}
-
 type httpClient struct {
 	keyMaker  crypto.ECDH
 	privKey   *crypto.PrivateKey
