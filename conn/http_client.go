@@ -16,13 +16,6 @@ import (
 	"github.com/butlermatt/dslink/crypto"
 )
 
-type msgFormat int
-
-const (
-	fmtJson msgFormat = iota
-	fmtMsgP
-)
-
 type dsResp struct {
 	Id        string `json:"id"`
 	PublicKey string `json:"publicKey"`
@@ -46,9 +39,10 @@ type httpClient struct {
 	privKey   *crypto.PrivateKey
 	dsId      string
 	keyMaker  crypto.ECDH
-	format    msgFormat
+	encoder   *Encoder
 	htClient  *http.Client
 	wsClient  *websocket.Conn
+	codecs    map[string]*Encoder
 }
 
 func NewHttpClient(opts ...func(c *conf)) *httpClient {
@@ -78,6 +72,7 @@ func NewHttpClient(opts ...func(c *conf)) *httpClient {
 		dsId:      c.key.DsId(c.name),
 		keyMaker:  crypto.NewECDH(),
 		htClient:  &http.Client{Timeout: time.Minute},
+		codecs: make(map[string]*Encoder),
 	}
 
 	if len(c.token) >= 16 {
@@ -89,6 +84,10 @@ func NewHttpClient(opts ...func(c *conf)) *httpClient {
 }
 
 func (cl *httpClient) Dial() error {
+	if len(cl.codecs) <= 0 {
+		return fmt.Errorf("no codecs to connect to remote server with")
+	}
+
 	resp, err := cl.getWsConfig()
 	if err != nil {
 		return err
@@ -100,9 +99,13 @@ func (cl *httpClient) Dial() error {
 		return err
 	}
 
-	// Set timeouts and then handle connections
+	// TODO: Set timeouts and then handle connections
 
 	return nil
+}
+
+func (cl *httpClient) Codec(e *Encoder) {
+	cl.codecs[e.Format] = e
 }
 
 func (cl *httpClient) getWsConfig() (*dsResp, error) {
@@ -114,10 +117,17 @@ func (cl *httpClient) getWsConfig() (*dsResp, error) {
 	}
 	u.RawQuery = q.Encode()
 
+	codecs := make([]string, len(cl.codecs))
+	i := 0
+	for c := range cl.codecs {
+		codecs[i] = "\"" + c + "\""
+		i++
+	}
+
 	values := fmt.Sprintf("{\"publicKey\": \"%s\", \"isRequester\": %t, \"isResponder\": %t,"+
-		"\"linkData\": {}, \"version\": \"1.1.2\", \"formats\": [\"msgpack\",\"json\"], "+
+		"\"linkData\": {}, \"version\": \"1.1.2\", \"formats\": [%s], "+
 		"\"enableWebSocketCompression\": true}",
-		cl.privKey.PublicKey.Base64(), cl.requester, cl.responder)
+		cl.privKey.PublicKey.Base64(), cl.requester, cl.responder, strings.Join(codecs, ","))
 
 	res, err := cl.htClient.Post(u.String(), "application/json", strings.NewReader(values))
 	if err != nil {
@@ -139,14 +149,13 @@ func (cl *httpClient) getWsConfig() (*dsResp, error) {
 }
 
 func (cl *httpClient) connectWs(conf *dsResp) error {
-	switch conf.Format {
-	case "json":
-		cl.format = fmtJson
-	case "msgpack":
-		cl.format = fmtMsgP
-	default:
-		return fmt.Errorf("unknown message format %q", conf.Format)
+	cd, ok := cl.codecs[conf.Format]
+	if !ok {
+		return fmt.Errorf("unknown message encoder %q", conf.Format)
 	}
+
+	cl.encoder = cd
+	cl.codecs = map[string]*Encoder{} // Clear the others since the server has chosen one.
 
 	pubKey, err := cl.keyMaker.UnmarshalPublic(conf.TempKey)
 	if err != nil {
@@ -163,7 +172,7 @@ func (cl *httpClient) connectWs(conf *dsResp) error {
 
 	q := u.Query()
 	q.Add("auth", auth)
-	q.Add("format", conf.Format)
+	q.Add("encoder", cl.encoder.Format)
 	q.Add("dsId", cl.dsId)
 	if cl.tHash != "" {
 		q.Add("token", cl.token+cl.tHash)

@@ -1,10 +1,10 @@
 package conn
 
 import (
-	"testing"
-	"github.com/butlermatt/dslink/crypto"
-	"crypto/rand"
 	"net/url"
+	"testing"
+	"crypto/rand"
+	"github.com/butlermatt/dslink/crypto"
 )
 
 func TestNewHttpClient(t *testing.T) {
@@ -55,7 +55,35 @@ func TestNewHttpClient(t *testing.T) {
 	}
 }
 
-func TestNewHttpClientPanic(t *testing.T) {
+func TestHttpClient_Codec(t *testing.T) {
+	km := crypto.NewECDH()
+	key, err := km.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal("error generating private key", err)
+	}
+	cl := NewHttpClient(Name("Test-"), Key(&key), Broker("http://localhost:8080/conn"))
+
+	cl.Codec(JsonCodec)
+	if len(cl.codecs) != 1 {
+		t.Errorf("cl.codecs incorrect number of codecs. expected=1, got=%d", len(cl.codecs))
+	}
+
+	cd, ok := cl.codecs[JsonCodec.Format]
+	if !ok {
+		t.Errorf("unable to retreive codec %q", JsonCodec.Format)
+	}
+
+	if cd != JsonCodec {
+		t.Errorf("codec does not match supplied codec")
+	}
+
+	cl.Codec(MsgpCodec)
+	if len(cl.codecs) != 2 {
+		t.Errorf("cl.codecs contains incorrect number of codecs. expected=2, got=%d", len(cl.codecs))
+	}
+}
+
+func TestNewHttpClientPanicNoKey(t *testing.T) {
 	defer func() {
 		if r := recover(); r == nil {
 			t.Error("Did not panic when expected")
@@ -67,7 +95,7 @@ func TestNewHttpClientPanic(t *testing.T) {
 
 }
 
-func TestNewHttpClientPanic2(t *testing.T) {
+func TestNewHttpClientPanicNoName(t *testing.T) {
 	defer func() {
 		if r := recover(); r == nil {
 			t.Error("Did not panic when expected")
@@ -80,7 +108,7 @@ func TestNewHttpClientPanic2(t *testing.T) {
 	_ = NewHttpClient(Broker("http://localhost:8080/conn"), Key(&pk))
 }
 
-func TestNewHttpClientPanic3(t *testing.T) {
+func TestNewHttpClientPanicNoBroker(t *testing.T) {
 	defer func() {
 		if r := recover(); r == nil {
 			t.Error("Did not panic when expected")
