@@ -1,10 +1,10 @@
 package conn
 
 import (
-	"net/url"
-	"testing"
 	"crypto/rand"
 	"github.com/butlermatt/dslink/crypto"
+	"net/url"
+	"testing"
 )
 
 func TestNewHttpClient(t *testing.T) {

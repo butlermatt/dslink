@@ -1,13 +1,12 @@
 package log
 
 import (
-	"testing"
 	"bytes"
-	"strings"
-	"os"
 	"fmt"
+	"os"
+	"strings"
+	"testing"
 )
-
 
 func TestSetLevel(t *testing.T) {
 	if currentLevel != WarningLevel {

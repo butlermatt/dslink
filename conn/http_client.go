@@ -6,14 +6,14 @@ import (
 )
 
 import (
+	"encoding/json"
 	"fmt"
+	"github.com/butlermatt/dslink/crypto"
+	"github.com/butlermatt/dslink/log"
+	"github.com/gorilla/websocket"
+	"io/ioutil"
 	"strings"
 	"time"
-	"io/ioutil"
-	"encoding/json"
-	"github.com/gorilla/websocket"
-	"github.com/butlermatt/dslink/log"
-	"github.com/butlermatt/dslink/crypto"
 )
 
 type dsResp struct {
@@ -72,7 +72,7 @@ func NewHttpClient(opts ...func(c *conf)) *httpClient {
 		dsId:      c.key.DsId(c.name),
 		keyMaker:  crypto.NewECDH(),
 		htClient:  &http.Client{Timeout: time.Minute},
-		codecs: make(map[string]*Encoder),
+		codecs:    make(map[string]*Encoder),
 	}
 
 	if len(c.token) >= 16 {

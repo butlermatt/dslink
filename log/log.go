@@ -180,7 +180,7 @@ func New(prefix string, parent *Logger) *Logger {
 }
 
 // Debug will attempt to log a DebugLevel message on the root logger. If log level is set to a higher value, these will be discarded.
-func Debug(v ...interface{})  {
+func Debug(v ...interface{}) {
 	rootLogger.Debug(v...)
 }
 

@@ -12,7 +12,7 @@ const (
 
 type Encoder struct {
 	Format    string
-	MsgType	  int
+	MsgType   int
 	Marshal   func(v interface{}) ([]byte, error)
 	Unmarshal func(data []byte, v interface{}) error
 }
@@ -24,7 +24,7 @@ var (
 
 func init() {
 	JsonCodec = &Encoder{
-		Format: "json",
+		Format:  "json",
 		MsgType: Text,
 		Marshal: func(v interface{}) ([]byte, error) {
 			return json.Marshal(v)
@@ -35,7 +35,7 @@ func init() {
 	}
 
 	MsgpCodec = &Encoder{
-		Format: "msgpack",
+		Format:  "msgpack",
 		MsgType: Binary,
 		Marshal: func(v interface{}) ([]byte, error) {
 			return msgpack.Marshal(v)

@@ -1,10 +1,10 @@
 package conn
 
 import (
-	"testing"
-	"net/url"
 	"crypto/rand"
 	"github.com/butlermatt/dslink/crypto"
+	"net/url"
+	"testing"
 )
 
 func TestIsRequester(t *testing.T) {
@@ -84,20 +84,20 @@ func TestMultiple(t *testing.T) {
 
 	applyTest(c, IsResponder, IsRequester, Name(n), Token(tok), Broker(u), Key(&key))
 	if !c.isResp && !c.isReq && c.name != n && c.token != tok &&
-		 c.broker.String() != uri.String() && c.key != &key {
-		t.Errorf("Failed to update all values.\n" +
-		  "c.isResp expected=%v got=%v\n" +
-		  "c.isReq  expected=%v got=%v\n" +
-		  "c.name   expected=%q got=%q\n" +
-		  "c.token  expected=%q got=%q\n" +
-		  "c.broker expected=%q got=%q\n" +
-		  "c.key    expected=%+v got=%+v",
-		true, c.isResp,
-		true, c.isReq,
-		n, c.name,
-		tok, c.token,
-		uri, c.broker,
-		key, c.key)
+		c.broker.String() != uri.String() && c.key != &key {
+		t.Errorf("Failed to update all values.\n"+
+			"c.isResp expected=%v got=%v\n"+
+			"c.isReq  expected=%v got=%v\n"+
+			"c.name   expected=%q got=%q\n"+
+			"c.token  expected=%q got=%q\n"+
+			"c.broker expected=%q got=%q\n"+
+			"c.key    expected=%+v got=%+v",
+			true, c.isResp,
+			true, c.isReq,
+			n, c.name,
+			tok, c.token,
+			uri, c.broker,
+			key, c.key)
 	}
 }
 

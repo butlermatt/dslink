@@ -25,25 +25,25 @@ func IsResponder(c *conf) {
 	c.isResp = true
 }
 
-func Broker(brokerUri string) (func(c *conf)) {
+func Broker(brokerUri string) func(c *conf) {
 	return func(c *conf) {
 		c.broker, _ = url.Parse(brokerUri)
 	}
 }
 
-func Name(name string) (func(c *conf)) {
+func Name(name string) func(c *conf) {
 	return func(c *conf) {
 		c.name = name
 	}
 }
 
-func Token(token string) (func(c *conf)) {
+func Token(token string) func(c *conf) {
 	return func(c *conf) {
 		c.token = token
 	}
 }
 
-func Key(key *crypto.PrivateKey) (func(c *conf)) {
+func Key(key *crypto.PrivateKey) func(c *conf) {
 	return func(c *conf) {
 		c.key = key
 	}
