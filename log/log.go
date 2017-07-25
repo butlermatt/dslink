@@ -1,6 +1,7 @@
 package log
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"os"
@@ -57,7 +58,7 @@ type Logger struct {
 	mu     sync.Mutex
 	parent *Logger
 	prefix string
-	buf    []byte
+	buf    *bytes.Buffer
 	out    io.Writer
 }
 
@@ -67,8 +68,20 @@ func (l *Logger) Debug(v ...interface{}) {
 		return
 	}
 
-	s := fmt.Sprintf(" %s", fmt.Sprint(v...))
-	l.writeBuf([]byte(s), DebugLevel)
+	buf := bytes.NewBufferString(" ")
+	fmt.Fprint(buf, v...)
+	l.writeBuf(buf.Bytes(), DebugLevel)
+}
+
+// Debugf will attempt to log a formatted DebugLevel message. If log level is set to a higher value, these will be discarded.
+func (l *Logger) Debugf(format string, v ...interface{}) {
+	if currentLevel > DebugLevel {
+		return
+	}
+
+	buf := bytes.NewBufferString(" ")
+	fmt.Fprintf(buf, format, v...)
+	l.writeBuf(buf.Bytes(), DebugLevel)
 }
 
 // Info will attempt to log an InfoLevel message. If log level is set to a higher value, these will be discarded.
@@ -77,8 +90,20 @@ func (l *Logger) Info(v ...interface{}) {
 		return
 	}
 
-	s := fmt.Sprintf(" %s", fmt.Sprint(v...))
-	l.writeBuf([]byte(s), InfoLevel)
+	buf := bytes.NewBufferString(" ")
+	fmt.Fprint(buf, v...)
+	l.writeBuf(buf.Bytes(), InfoLevel)
+}
+
+// Infof will attempt to log a formatted InfoLevel message. If log level is set to a higher value, these will be discarded.
+func (l *Logger) Infof(format string, v ...interface{}) {
+	if currentLevel > InfoLevel {
+		return
+	}
+
+	buf := bytes.NewBufferString(" ")
+	fmt.Fprintf(buf, format, v...)
+	l.writeBuf(buf.Bytes(), InfoLevel)
 }
 
 // Warn will attempt to log a WarningLevel message. If log level is set to a higher value, these will be discarded.
@@ -87,8 +112,20 @@ func (l *Logger) Warn(v ...interface{}) {
 		return
 	}
 
-	s := fmt.Sprintf(" %s", fmt.Sprint(v...))
-	l.writeBuf([]byte(s), WarningLevel)
+	buf := bytes.NewBufferString(" ")
+	fmt.Fprint(buf, v...)
+	l.writeBuf(buf.Bytes(), WarningLevel)
+}
+
+// Warnf will attempt to log a formatted WarningLevel message. If log level is set to a higher value, these will be discarded.
+func (l *Logger) Warnf(format string, v ...interface{}) {
+	if currentLevel > WarningLevel {
+		return
+	}
+
+	buf := bytes.NewBufferString(" ")
+	fmt.Fprintf(buf, format, v...)
+	l.writeBuf(buf.Bytes(), WarningLevel)
 }
 
 // Error will attempt to log an ErrorLevel message. This is the highest and most severe logging level. If log level
@@ -98,8 +135,21 @@ func (l *Logger) Error(v ...interface{}) {
 		return
 	}
 
-	s := fmt.Sprintf(" %s", fmt.Sprint(v...))
-	l.writeBuf([]byte(s), ErrorLevel)
+	buf := bytes.NewBufferString(" ")
+	fmt.Fprint(buf, v...)
+	l.writeBuf(buf.Bytes(), ErrorLevel)
+}
+
+// Errorf will attempt to log a formatted ErrorLevel message. This is the highest and most severe logging level. If log level
+// is set to DisabledLevel, then these messages will be discarded.
+func (l *Logger) Errorf(format string, v ...interface{}) {
+	if currentLevel > ErrorLevel {
+		return
+	}
+
+	buf := bytes.NewBufferString(" ")
+	fmt.Fprintf(buf, format, v...)
+	l.writeBuf(buf.Bytes(), ErrorLevel)
 }
 
 func (l *Logger) write(lvl Level) {
@@ -108,16 +158,16 @@ func (l *Logger) write(lvl Level) {
 	}
 
 	now := time.Now()
-	var b []byte
-	b = append(b, fmt.Sprintf("[%s] ", lvl)...)
-	b = append(b, now.Format(time.StampMilli)...)
-	b = append(b, ' ')
-	b = append(b, l.buf...)
-	if b[len(b)-1] != '\n' {
-		b = append(b, '\n')
+	b := new(bytes.Buffer)
+	fmt.Fprintf(b, "[%s] ", lvl)
+	fmt.Fprint(b, now.Format(time.StampMilli))
+	b.WriteByte(' ')
+	l.buf.WriteTo(b)
+	if b.Bytes()[len(b.Bytes())-1] != '\n' {
+		b.WriteByte('\n')
 	}
 
-	l.out.Write(b)
+	b.WriteTo(l.out)
 }
 
 func (l *Logger) writeBuf(b []byte, lvl Level) {
@@ -125,22 +175,25 @@ func (l *Logger) writeBuf(b []byte, lvl Level) {
 	defer l.mu.Unlock()
 
 	l.addPrefix()
-	l.buf = append(l.buf, b...)
+	l.buf.Write(b)
 
 	if l.parent != nil {
-		l.parent.writeBuf(l.buf, lvl)
+		l.parent.writeBuf(l.buf.Bytes(), lvl)
 	} else {
 		l.write(lvl)
 	}
 
-	l.buf = l.buf[:0]
+	l.buf.Reset()
 }
 
 func (l *Logger) addPrefix() {
+	if l.buf == nil {
+		l.buf = new(bytes.Buffer)
+	}
 	if len(l.prefix) >= 1 {
-		l.buf = append(l.buf, '[')
-		l.buf = append(l.buf, l.prefix...)
-		l.buf = append(l.buf, ']')
+		l.buf.WriteByte('[')
+		l.buf.WriteString(l.prefix)
+		l.buf.WriteByte(']')
 	}
 }
 
@@ -198,4 +251,25 @@ func Warn(v ...interface{}) {
 // is set to DisabledLevel, then these messages will be discarded.
 func Error(v ...interface{}) {
 	rootLogger.Error(v...)
+}
+
+// Debugf will attempt to log a formatted DebugLevel message on the root logger. If log level is set to a higher value, these will be discarded.
+func Debugf(format string, v ...interface{}) {
+	rootLogger.Debugf(format, v...)
+}
+
+// Infof will attempt to log a formatted InfoLevel message on the root logger. If log level is set to a higher value, these will be discarded.
+func Infof(format string, v ...interface{}) {
+	rootLogger.Infof(format, v...)
+}
+
+// Warnf will attempt to log a formatted WarningLevel message on the root logger. If log level is set to a higher value, these will be discarded.
+func Warnf(format string, v ...interface{}) {
+	rootLogger.Warnf(format, v...)
+}
+
+// Errorf will attempt to log a formatted ErrorLevel message on the root logger. This is the highest and most severe logging level. If log level
+// is set to DisabledLevel, then these messages will be discarded.
+func Errorf(format string, v ...interface{}) {
+	rootLogger.Errorf(format, v...)
 }

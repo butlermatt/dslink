@@ -78,6 +78,10 @@ func TestLogger_Levels(t *testing.T) {
 	testLevels(t, InfoLevel, l.Info, l.prefix)
 	testLevels(t, WarningLevel, l.Warn, l.prefix)
 	testLevels(t, ErrorLevel, l.Error, l.prefix)
+	testFormattedLevels(t, DebugLevel, l.Debugf, l.prefix)
+	testFormattedLevels(t, InfoLevel, l.Infof, l.prefix)
+	testFormattedLevels(t, WarningLevel, l.Warnf, l.prefix)
+	testFormattedLevels(t, ErrorLevel, l.Errorf, l.prefix)
 }
 
 func TestRootLevels(t *testing.T) {
@@ -85,6 +89,10 @@ func TestRootLevels(t *testing.T) {
 	testLevels(t, InfoLevel, Info, "DSA")
 	testLevels(t, WarningLevel, Warn, "DSA")
 	testLevels(t, ErrorLevel, Error, "DSA")
+	testFormattedLevels(t, DebugLevel, Debugf, "DSA")
+	testFormattedLevels(t, InfoLevel, Infof, "DSA")
+	testFormattedLevels(t, WarningLevel, Warnf, "DSA")
+	testFormattedLevels(t, ErrorLevel, Errorf, "DSA")
 }
 
 func testLevels(t *testing.T, l Level, f func(v ...interface{}), prefix string) {
@@ -110,6 +118,39 @@ func testLevels(t *testing.T, l Level, f func(v ...interface{}), prefix string) 
 			}
 			if !strings.Contains(s, fmt.Sprintf("%s\n", line)) {
 				t.Errorf("Logged line does not contain provided. expected=%q got=%q", line, s)
+			}
+		} else {
+			if len(s) > 0 {
+				t.Errorf("Unexpected logged line at %q level: %s", lvl, s)
+			}
+		}
+	}
+}
+
+func testFormattedLevels(t *testing.T, l Level, f func(format string, v ...interface{}), prefix string) {
+	levels := []Level{DebugLevel, InfoLevel, WarningLevel, ErrorLevel, DisabledLevel}
+	line := "This is a %s"
+	test := "test"
+	buf := new(bytes.Buffer)
+	SetOutput(buf)
+
+	for _, lvl := range levels {
+		buf.Reset()
+		SetLevel(lvl)
+		f(line, test)
+		s := buf.String()
+		if lvl <= l {
+			if !strings.Contains(s, fmt.Sprintf("[%s]", l)) {
+				t.Errorf("Logged line does not contain level tag: %q, got %s", l, s)
+			}
+			if !strings.Contains(s, "[DSA]") {
+				t.Error("Logged line does not contain root prefix")
+			}
+			if !strings.Contains(s, fmt.Sprintf("[%s]", prefix)) {
+				t.Errorf("Logged line does not contain expected prefix: %q, got=%q", prefix, s)
+			}
+			if !strings.Contains(s, fmt.Sprintf("%s\n", fmt.Sprintf(line, test))) {
+				t.Errorf("Logged line does not contain provided line. expected=%q got=%q", line, s)
 			}
 		} else {
 			if len(s) > 0 {
