@@ -9,14 +9,14 @@ import (
 )
 
 func TestSetLevel(t *testing.T) {
-	if currentLevel != WarningLevel {
-		t.Errorf("Incorrect default level. expected=%q got=%q", WarningLevel, currentLevel)
+	if currentLevel != WarningLvl {
+		t.Errorf("Incorrect default level. expected=%q got=%q", WarningLvl, currentLevel)
 	}
 
-	SetLevel(DisabledLevel)
+	SetLevel(DisabledLvl)
 
-	if currentLevel != DisabledLevel {
-		t.Errorf("SetLevel failed. expect=%q got=%q", DisabledLevel, currentLevel)
+	if currentLevel != DisabledLvl {
+		t.Errorf("SetLevel failed. expect=%q got=%q", DisabledLvl, currentLevel)
 	}
 }
 
@@ -37,7 +37,7 @@ func TestNew(t *testing.T) {
 	buf := new(bytes.Buffer)
 
 	SetOutput(buf)
-	SetLevel(DebugLevel)
+	SetLevel(DebugLvl)
 
 	log := New("Test", nil)
 	log.Debug("This is a test", 15)
@@ -74,29 +74,29 @@ func TestNew(t *testing.T) {
 
 func TestLogger_Levels(t *testing.T) {
 	l := New("Test", nil)
-	testLevels(t, DebugLevel, l.Debug, l.prefix)
-	testLevels(t, InfoLevel, l.Info, l.prefix)
-	testLevels(t, WarningLevel, l.Warn, l.prefix)
-	testLevels(t, ErrorLevel, l.Error, l.prefix)
-	testFormattedLevels(t, DebugLevel, l.Debugf, l.prefix)
-	testFormattedLevels(t, InfoLevel, l.Infof, l.prefix)
-	testFormattedLevels(t, WarningLevel, l.Warnf, l.prefix)
-	testFormattedLevels(t, ErrorLevel, l.Errorf, l.prefix)
+	testLevels(t, DebugLvl, l.Debug, l.prefix)
+	testLevels(t, InfoLvl, l.Info, l.prefix)
+	testLevels(t, WarningLvl, l.Warn, l.prefix)
+	testLevels(t, ErrorLvl, l.Error, l.prefix)
+	testFormattedLevels(t, DebugLvl, l.Debugf, l.prefix)
+	testFormattedLevels(t, InfoLvl, l.Infof, l.prefix)
+	testFormattedLevels(t, WarningLvl, l.Warnf, l.prefix)
+	testFormattedLevels(t, ErrorLvl, l.Errorf, l.prefix)
 }
 
 func TestRootLevels(t *testing.T) {
-	testLevels(t, DebugLevel, Debug, "DSA")
-	testLevels(t, InfoLevel, Info, "DSA")
-	testLevels(t, WarningLevel, Warn, "DSA")
-	testLevels(t, ErrorLevel, Error, "DSA")
-	testFormattedLevels(t, DebugLevel, Debugf, "DSA")
-	testFormattedLevels(t, InfoLevel, Infof, "DSA")
-	testFormattedLevels(t, WarningLevel, Warnf, "DSA")
-	testFormattedLevels(t, ErrorLevel, Errorf, "DSA")
+	testLevels(t, DebugLvl, Debug, "DSA")
+	testLevels(t, InfoLvl, Info, "DSA")
+	testLevels(t, WarningLvl, Warn, "DSA")
+	testLevels(t, ErrorLvl, Error, "DSA")
+	testFormattedLevels(t, DebugLvl, Debugf, "DSA")
+	testFormattedLevels(t, InfoLvl, Infof, "DSA")
+	testFormattedLevels(t, WarningLvl, Warnf, "DSA")
+	testFormattedLevels(t, ErrorLvl, Errorf, "DSA")
 }
 
 func testLevels(t *testing.T, l Level, f func(v ...interface{}), prefix string) {
-	levels := []Level{DebugLevel, InfoLevel, WarningLevel, ErrorLevel, DisabledLevel}
+	levels := []Level{DebugLvl, InfoLvl, WarningLvl, ErrorLvl, DisabledLvl}
 	line := "This is a test"
 	buf := new(bytes.Buffer)
 	SetOutput(buf)
@@ -128,7 +128,7 @@ func testLevels(t *testing.T, l Level, f func(v ...interface{}), prefix string) 
 }
 
 func testFormattedLevels(t *testing.T, l Level, f func(format string, v ...interface{}), prefix string) {
-	levels := []Level{DebugLevel, InfoLevel, WarningLevel, ErrorLevel, DisabledLevel}
+	levels := []Level{DebugLvl, InfoLvl, WarningLvl, ErrorLvl, DisabledLvl}
 	line := "This is a %s"
 	test := "test"
 	buf := new(bytes.Buffer)
