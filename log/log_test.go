@@ -8,153 +8,223 @@ import (
 	"testing"
 )
 
+type syncWriter struct {
+	buf *bytes.Buffer
+	ch  chan bool
+}
+
+func newWriter() *syncWriter {
+	return &syncWriter{buf: new(bytes.Buffer), ch: make(chan bool)}
+}
+
+func (sw *syncWriter) Write(p []byte) (n int, err error) {
+	n, err = sw.buf.Write(p)
+	sw.ch <- true
+	return n, err
+}
+
+func (sw *syncWriter) String() string {
+	return sw.buf.String()
+}
+
 func TestSetLevel(t *testing.T) {
-	if currentLevel != WarningLvl {
-		t.Errorf("Incorrect default level. expected=%q got=%q", WarningLvl, currentLevel)
+	if rootLogger.level != WarningLvl {
+		t.Errorf("Incorrect default level. expected=%q got=%q", WarningLvl, rootLogger.level)
 	}
 
 	SetLevel(DisabledLvl)
 
-	if currentLevel != DisabledLvl {
-		t.Errorf("SetLevel failed. expect=%q got=%q", DisabledLvl, currentLevel)
+	if rootLogger.level != DisabledLvl {
+		t.Errorf("SetLevel failed. expect=%q got=%q", DisabledLvl, rootLogger.level)
 	}
+
+	SetLevel(WarningLvl) // Reset logging
 }
 
 func TestSetOutput(t *testing.T) {
-	if rootLogger.out != os.Stderr {
-		t.Errorf("Incorrect default output. expect=%#v got=%#v", os.Stderr, rootLogger.out)
+	if out != os.Stdout {
+		t.Errorf("Incorrect default output. expect=%#v got=%#v", os.Stdout, out)
 	}
 
-	buf := new(bytes.Buffer)
+	buf := newWriter()
 	SetOutput(buf)
+	Warn("ignore")
+	<-buf.ch
 
-	if rootLogger.out != buf {
-		t.Errorf("SetOutput failed. expect=%#v got=%#v", buf, rootLogger.out)
+	if out != buf {
+		t.Errorf("SetOutput failed. expect=%#v got=%#v", buf, out)
 	}
 }
 
-func TestNew(t *testing.T) {
-	buf := new(bytes.Buffer)
+func TestNewChild(t *testing.T) {
+	buf := newWriter()
 
+	log := New("Test")
 	SetOutput(buf)
-	SetLevel(DebugLvl)
+	log.SetLevel(DebugLvl)
 
-	log := New("Test", nil)
-	log.Debug("This is a test", 15)
+	log.Debug("This is a test")
 
+	<-buf.ch
 	str := buf.String()
 
-	if !strings.Contains(str, "[DSA]") {
-		t.Error("Logged line does not contain root prefix")
+	if !strings.Contains(str, "DSA") {
+		t.Errorf("Logged line does not contain root prefix: %q", str)
 	}
 
-	if !strings.Contains(str, "[Test]") {
+	if !strings.Contains(str, "Test") {
 		t.Error("Logged line does not contain prefix.")
 	}
 
-	buf.Reset()
+	buf.buf.Reset()
 
-	l2 := New("Test2", log)
+	l2 := log.Child("Test2")
 	l2.Debug("This is a test")
 
+	<-buf.ch
 	str = buf.String()
 
-	if !strings.Contains(str, "[DSA]") {
-		t.Error("Logged line does not contain root prefix")
+	if !strings.Contains(str, "[DSA.Test.Test2]") {
+		t.Errorf("unexpected logger name. expected=%q, got=%q", "DSA.Test.Test2", l2.name)
 	}
+}
 
-	if !strings.Contains(str, "[Test]") {
-		t.Error("Logged line does not contain parent prefix.")
-	}
+type logLevelTest struct {
+	level  Level
+	action func(string)
+}
 
-	if !strings.Contains(str, "[Test2]") {
-		t.Error("Logged line does not contain prefix")
-	}
+type formattedLogTest struct {
+	level  Level
+	action func(format string, args ...interface{})
 }
 
 func TestLogger_Levels(t *testing.T) {
-	l := New("Test", nil)
-	testLevels(t, DebugLvl, l.Debug, l.prefix)
-	testLevels(t, InfoLvl, l.Info, l.prefix)
-	testLevels(t, WarningLvl, l.Warn, l.prefix)
-	testLevels(t, ErrorLvl, l.Error, l.prefix)
-	testFormattedLevels(t, DebugLvl, l.Debugf, l.prefix)
-	testFormattedLevels(t, InfoLvl, l.Infof, l.prefix)
-	testFormattedLevels(t, WarningLvl, l.Warnf, l.prefix)
-	testFormattedLevels(t, ErrorLvl, l.Errorf, l.prefix)
+	l := New("Test")
+	tests := []logLevelTest{
+		{TraceLvl, l.Trace},
+		{DebugLvl, l.Debug},
+		{FineLvl, l.Fine},
+		{WarningLvl, l.Warn},
+		{InfoLvl, l.Info},
+		{ErrorLvl, l.Error},
+		{AdminLvl, l.Admin},
+		{FatalLvl, l.Fatal},
+	}
+
+	formatTests := []formattedLogTest{
+		{TraceLvl, l.Tracef},
+		{DebugLvl, l.Debugf},
+		{FineLvl, l.Finef},
+		{WarningLvl, l.Warnf},
+		{InfoLvl, l.Infof},
+		{ErrorLvl, l.Errorf},
+		{AdminLvl, l.Adminf},
+		{FatalLvl, l.Fatalf},
+	}
+
+	testLevels(t, l, tests, "DSA.Test")
+	testFormattedLevels(t, l, formatTests, "DSA.Test")
 }
 
 func TestRootLevels(t *testing.T) {
-	testLevels(t, DebugLvl, Debug, "DSA")
-	testLevels(t, InfoLvl, Info, "DSA")
-	testLevels(t, WarningLvl, Warn, "DSA")
-	testLevels(t, ErrorLvl, Error, "DSA")
-	testFormattedLevels(t, DebugLvl, Debugf, "DSA")
-	testFormattedLevels(t, InfoLvl, Infof, "DSA")
-	testFormattedLevels(t, WarningLvl, Warnf, "DSA")
-	testFormattedLevels(t, ErrorLvl, Errorf, "DSA")
+	tests := []logLevelTest{
+		{TraceLvl, Trace},
+		{DebugLvl, Debug},
+		{FineLvl, Fine},
+		{WarningLvl, Warn},
+		{InfoLvl, Info},
+		{ErrorLvl, Error},
+		{AdminLvl, Admin},
+		{FatalLvl, Fatal},
+	}
+
+	formatTests := []formattedLogTest{
+		{TraceLvl, Tracef},
+		{DebugLvl, Debugf},
+		{FineLvl, Finef},
+		{WarningLvl, Warnf},
+		{InfoLvl, Infof},
+		{ErrorLvl, Errorf},
+		{AdminLvl, Adminf},
+		{FatalLvl, Fatalf},
+	}
+
+	testLevels(t, rootLogger, tests, "DSA")
+	testFormattedLevels(t, rootLogger, formatTests, "DSA")
 }
 
-func testLevels(t *testing.T, l Level, f func(v ...interface{}), prefix string) {
-	levels := []Level{DebugLvl, InfoLvl, WarningLvl, ErrorLvl, DisabledLvl}
-	line := "This is a test"
-	buf := new(bytes.Buffer)
+func testLevels(t *testing.T, logger *Logger, tests []logLevelTest, name string) {
+	t.Helper()
+	levels := []Level{TraceLvl, DebugLvl, FineLvl, WarningLvl, InfoLvl, ErrorLvl, AdminLvl, FatalLvl, DisabledLvl}
+	buf := newWriter()
 	SetOutput(buf)
 
 	for _, lvl := range levels {
-		buf.Reset()
-		SetLevel(lvl)
-		f(line)
-		s := buf.String()
-		if lvl <= l {
-			if !strings.Contains(s, fmt.Sprintf("[%s]", l)) {
-				t.Errorf("Logged line does not contain level tag: %q, got %s", l, s)
-			}
-			if !strings.Contains(s, "[DSA]") {
-				t.Error("Logged line does not contain root prefix")
-			}
-			if !strings.Contains(s, fmt.Sprintf("[%s]", prefix)) {
-				t.Errorf("Logged line does not contain expected prefix: %q, got=%q", prefix, s)
-			}
-			if !strings.Contains(s, fmt.Sprintf("%s\n", line)) {
-				t.Errorf("Logged line does not contain provided. expected=%q got=%q", line, s)
-			}
-		} else {
-			if len(s) > 0 {
-				t.Errorf("Unexpected logged line at %q level: %s", lvl, s)
+		for _, tt := range tests {
+			buf.buf.Reset()
+			logger.SetLevel(lvl)
+			tt.action("this is a test")
+			if tt.level >= lvl {
+				<-buf.ch
+				s := buf.String()
+				if !strings.Contains(s, fmt.Sprintf("%s", tt.level)) {
+					t.Errorf("Logged line does not contain level tag: %q, got %s", tt.level, s)
+				}
+				if !strings.Contains(s, "DSA") {
+					t.Error("Logged line does not contain root prefix")
+				}
+				if !strings.Contains(s, name) {
+					t.Errorf("Logged line does not contain expected prefix: %q, got=%q", name, s)
+				}
+				if !strings.Contains(s, "this is a test") {
+					t.Errorf("Logged line does not contain provided. expected=%q got=%q", "this is a test", s)
+				}
+			} else {
+				go func() { buf.ch <- true }()
+				<-buf.ch
+				s := buf.String()
+				if len(s) != 0 {
+					t.Errorf("logged line contains unexpected content: %q", s)
+				}
 			}
 		}
 	}
 }
 
-func testFormattedLevels(t *testing.T, l Level, f func(format string, v ...interface{}), prefix string) {
-	levels := []Level{DebugLvl, InfoLvl, WarningLvl, ErrorLvl, DisabledLvl}
-	line := "This is a %s"
-	test := "test"
-	buf := new(bytes.Buffer)
+func testFormattedLevels(t *testing.T, logger *Logger, tests []formattedLogTest, name string) {
+	t.Helper()
+	levels := []Level{TraceLvl, DebugLvl, FineLvl, WarningLvl, InfoLvl, ErrorLvl, AdminLvl, FatalLvl, DisabledLvl}
+	buf := newWriter()
 	SetOutput(buf)
 
 	for _, lvl := range levels {
-		buf.Reset()
-		SetLevel(lvl)
-		f(line, test)
-		s := buf.String()
-		if lvl <= l {
-			if !strings.Contains(s, fmt.Sprintf("[%s]", l)) {
-				t.Errorf("Logged line does not contain level tag: %q, got %s", l, s)
-			}
-			if !strings.Contains(s, "[DSA]") {
-				t.Error("Logged line does not contain root prefix")
-			}
-			if !strings.Contains(s, fmt.Sprintf("[%s]", prefix)) {
-				t.Errorf("Logged line does not contain expected prefix: %q, got=%q", prefix, s)
-			}
-			if !strings.Contains(s, fmt.Sprintf("%s\n", fmt.Sprintf(line, test))) {
-				t.Errorf("Logged line does not contain provided line. expected=%q got=%q", line, s)
-			}
-		} else {
-			if len(s) > 0 {
-				t.Errorf("Unexpected logged line at %q level: %s", lvl, s)
+		for _, tt := range tests {
+			buf.buf.Reset()
+			logger.SetLevel(lvl)
+			tt.action("this is a test")
+			if tt.level >= lvl {
+				<-buf.ch
+				s := buf.String()
+				if !strings.Contains(s, fmt.Sprintf("%s", tt.level)) {
+					t.Errorf("Logged line does not contain level tag: %q, got %s", tt.level, s)
+				}
+				if !strings.Contains(s, "DSA") {
+					t.Error("Logged line does not contain root prefix")
+				}
+				if !strings.Contains(s, name) {
+					t.Errorf("Logged line does not contain expected prefix: %q, got=%q", name, s)
+				}
+				if !strings.Contains(s, "this is a test") {
+					t.Errorf("Logged line does not contain provided. expected=%q got=%q", "this is a test", s)
+				}
+			} else {
+				go func() { buf.ch <- true }()
+				<-buf.ch
+				s := buf.String()
+				if len(s) != 0 {
+					t.Errorf("logged line contains unexpected content: %q", s)
+				}
 			}
 		}
 	}

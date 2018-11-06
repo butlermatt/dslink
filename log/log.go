@@ -65,10 +65,10 @@ const (
 )
 
 var (
-	currentLevel Level = WarningLvl
-	rootLogger   *Logger
-	ch           chan *LogRecord
-	out          io.Writer
+	rootLogger *Logger
+	ch         chan *LogRecord
+	och        chan io.Writer
+	out        io.Writer
 )
 
 type LogRecord struct {
@@ -107,21 +107,38 @@ func (lr *LogRecord) String() string {
 // Each logging operation makes a single call to the Writer's Write method. A Logger can be used
 // simultaneously from multiple goroutines. It guarantees to serialize access to the Writer.
 type Logger struct {
-	Name string
+	name  string
+	level Level
 }
 
-// New creates a new Logger with the specified name.
+// New creates a new Logger with the specified name. This will be prepended with the default logger's name. The
+// default log level will be that of the root logger's level.
 func New(name string) *Logger {
-	return &Logger{Name: name}
+	return rootLogger.Child(name)
+}
+
+// Child will create a child logger of this logger. This will simply mean it inherits the log name of the parent.
+// It will also inherit the log level of the parent, but that may be changed.
+func (l *Logger) Child(name string) *Logger {
+	return &Logger{name: l.name + "." + name, level: l.level}
+}
+
+// SetLevel sets the log level for this logger. Messages below this log level will be discarded.
+func (l *Logger) SetLevel(level Level) {
+	l.level = level
 }
 
 // Logf creates a new log entry at the specified level with the format string specified for this logger.
 func (l *Logger) Logf(lvl Level, format string, args ...interface{}) {
-	r := newRecord(lvl, l.Name, format, args...)
+	if l.level > lvl {
+		return
+	}
+	r := newRecord(lvl, l.name, format, args...)
+
 	ch <- r
 }
 
-// Trace creates a Trace Level log entry with the specified string.
+// Trace creates a Trace Level log entry with the specified string for this logger.
 func (l *Logger) Trace(message string) {
 	l.Logf(TraceLvl, message)
 }
@@ -131,7 +148,7 @@ func (l *Logger) Tracef(format string, args ...interface{}) {
 	l.Logf(TraceLvl, format, args...)
 }
 
-// Debug creates a Debug Level log entry with the specified string.
+// Debug creates a Debug Level log entry with the specified string for this logger.
 func (l *Logger) Debug(message string) {
 	l.Logf(DebugLvl, message)
 }
@@ -141,7 +158,7 @@ func (l *Logger) Debugf(format string, args ...interface{}) {
 	l.Logf(DebugLvl, format, args...)
 }
 
-// Fine creates a Fine Level log entry with the specified string.
+// Fine creates a Fine Level log entry with the specified string for this logger.
 func (l *Logger) Fine(message string) {
 	l.Logf(FineLvl, message)
 }
@@ -151,7 +168,7 @@ func (l *Logger) Finef(format string, args ...interface{}) {
 	l.Logf(FineLvl, format, args...)
 }
 
-// Warn creates a Warn Level log entry with the specified string.
+// Warn creates a Warn Level log entry with the specified string for this logger.
 func (l *Logger) Warn(message string) {
 	l.Logf(WarningLvl, message)
 }
@@ -161,7 +178,7 @@ func (l *Logger) Warnf(format string, args ...interface{}) {
 	l.Logf(WarningLvl, format, args...)
 }
 
-// Info creates a Info Level log entry with the specified string.
+// Info creates a Info Level log entry with the specified string for this logger.
 func (l *Logger) Info(message string) {
 	l.Logf(InfoLvl, message)
 }
@@ -171,7 +188,7 @@ func (l *Logger) Infof(format string, args ...interface{}) {
 	l.Logf(InfoLvl, format, args...)
 }
 
-// Error creates a Error Level log entry with the specified string.
+// Error creates a Error Level log entry with the specified string for this logger.
 func (l *Logger) Error(message string) {
 	l.Logf(ErrorLvl, message)
 }
@@ -181,7 +198,7 @@ func (l *Logger) Errorf(format string, args ...interface{}) {
 	l.Logf(ErrorLvl, format, args...)
 }
 
-// Admin creates a Admin Level log entry with the specified string.
+// Admin creates a Admin Level log entry with the specified string for this logger.
 func (l *Logger) Admin(message string) {
 	l.Logf(AdminLvl, message)
 }
@@ -191,7 +208,7 @@ func (l *Logger) Adminf(format string, args ...interface{}) {
 	l.Logf(AdminLvl, format, args...)
 }
 
-// Fatal creates a Fatal Level log entry with the specified string.
+// Fatal creates a Fatal Level log entry with the specified string for this logger.
 func (l *Logger) Fatal(message string) {
 	l.Logf(FatalLvl, message)
 }
@@ -201,17 +218,121 @@ func (l *Logger) Fatalf(format string, args ...interface{}) {
 	l.Logf(FatalLvl, format, args...)
 }
 
+// Default Logger
+
+// SetLevel sets the log level for the default logger. Messages below this log level will be discarded.
+func SetLevel(level Level) {
+	rootLogger.level = level
+}
+
+// Logf creates a new log entry at the specified level with the format string specified for the default logger.
+func Logf(lvl Level, format string, args ...interface{}) {
+	rootLogger.Logf(lvl, format, args...)
+}
+
+// Trace creates a Trace Level log entry with the specified string for the default logger.
+func Trace(message string) {
+	rootLogger.Logf(TraceLvl, message)
+}
+
+// Tracef creates a Trace Level log entry with the format string specified for the default logger.
+func Tracef(format string, args ...interface{}) {
+	rootLogger.Logf(TraceLvl, format, args...)
+}
+
+// Debug creates a Debug Level log entry with the specified string for the default logger.
+func Debug(message string) {
+	rootLogger.Logf(DebugLvl, message)
+}
+
+// Debugf creates a Debug Level log entry with the format string specified for the default logger.
+func Debugf(format string, args ...interface{}) {
+	rootLogger.Logf(DebugLvl, format, args...)
+}
+
+// Fine creates a Fine Level log entry with the specified string for the default logger.
+func Fine(message string) {
+	rootLogger.Logf(FineLvl, message)
+}
+
+// Finef creates a Fine Level log entry with the format string specified for the default logger.
+func Finef(format string, args ...interface{}) {
+	rootLogger.Logf(FineLvl, format, args...)
+}
+
+// Warn creates a Warn Level log entry with the specified string for the default logger.
+func Warn(message string) {
+	rootLogger.Logf(WarningLvl, message)
+}
+
+// Warnf creates a Warning Level log entry with the format string specified for the default logger.
+func Warnf(format string, args ...interface{}) {
+	rootLogger.Logf(WarningLvl, format, args...)
+}
+
+// Info creates a Info Level log entry with the specified string for the default logger..
+func Info(message string) {
+	rootLogger.Logf(InfoLvl, message)
+}
+
+// Infof creates a Info Level log entry with the format string specified for the default logger.
+func Infof(format string, args ...interface{}) {
+	rootLogger.Logf(InfoLvl, format, args...)
+}
+
+// Error creates a Error Level log entry with the specified string for the default logger..
+func Error(message string) {
+	rootLogger.Logf(ErrorLvl, message)
+}
+
+// Errorf creates a Error Level log entry with the format string specified for the default logger.
+func Errorf(format string, args ...interface{}) {
+	rootLogger.Logf(ErrorLvl, format, args...)
+}
+
+// Admin creates a Admin Level log entry with the specified string for the default logger.
+func Admin(message string) {
+	rootLogger.Logf(AdminLvl, message)
+}
+
+// Adminf creates a Admin Level log entry with the format string specified for the default logger.
+func Adminf(format string, args ...interface{}) {
+	rootLogger.Logf(AdminLvl, format, args...)
+}
+
+// Fatal creates a Fatal Level log entry with the specified string for the default logger.
+func Fatal(message string) {
+	rootLogger.Logf(FatalLvl, message)
+}
+
+// Fatalf creates a Fatal Level log entry with the format string specified for the default logger.
+func Fatalf(format string, args ...interface{}) {
+	rootLogger.Logf(FatalLvl, format, args...)
+}
+
 type LogHandler func(record *LogRecord)
 
+// SetOutput sets the specified writer to be the output destination of logs.
+func SetOutput(w io.Writer) {
+	och <- w
+}
+
 func init() {
+	rootLogger = &Logger{name: "DSA", level: WarningLvl}
 	ch = make(chan *LogRecord, 10)
+	och = make(chan io.Writer)
 	out = os.Stdout
 
 	go printLog()
 }
 
 func printLog() {
-	for r := range ch {
-		_, _ = fmt.Fprint(out, r.String())
+	for {
+		select {
+		case r := <-ch:
+			_, _ = fmt.Fprint(out, r.String())
+		case o := <-och:
+			out = o
+		}
 	}
 }
